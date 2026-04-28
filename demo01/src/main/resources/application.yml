@@ -1,0 +1,27 @@
+server:
+  port: 8090
+  servlet:
+    context-path: /tech-facts
+
+spring:
+  application:
+    name: demo01
+#  liquibase:
+#    enabled: false
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/flowable
+    username: postgres
+    password: 123456
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+      format_sql: true
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+
+flowable:
+  database-schema-update: true
+  check-process-definitions: true
+  history-level: full

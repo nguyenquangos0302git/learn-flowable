@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:flowable="http://flowable.org/bpmn"
+                  id="Definitions_LeaveRequest"
+                  targetNamespace="http://flowable.org/bpmn">
+
+    <bpmn:process id="leaveRequestProcess"
+                  name="Leave Request Process"
+                  isExecutable="true">
+
+        <!-- Start -->
+        <bpmn:startEvent id="startEvent"
+                         name="Create Leave Request">
+            <bpmn:outgoing>flow_start_leader</bpmn:outgoing>
+        </bpmn:startEvent>
+
+        <!-- Leader Approve -->
+        <bpmn:userTask id="leaderApproveTask"
+                       name="Leader Approval"
+                       flowable:candidateGroups="leader">
+            <bpmn:incoming>flow_start_leader</bpmn:incoming>
+            <bpmn:outgoing>flow_leader_group1</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Group 1: Only 1 approve -->
+        <bpmn:userTask id="groupApproveTask1"
+                       name="Group Approval Level 1"
+                       flowable:candidateGroups="group_level_1">
+            <bpmn:incoming>flow_leader_group1</bpmn:incoming>
+            <bpmn:outgoing>flow_group1_departmentHead</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Department Head -->
+        <bpmn:userTask id="departmentHeadTask"
+                       name="Department Head Approval"
+                       flowable:candidateUsers="${departmentHead}">
+            <bpmn:incoming>flow_group1_departmentHead</bpmn:incoming>
+            <bpmn:outgoing>flow_department_group2</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Group 2: All approve -->
+        <bpmn:userTask id="groupApproveTask2"
+                       name="Group Approval Level 2 (All Must Approve)"
+                       flowable:candidateGroups="group_level_2">
+            <bpmn:incoming>flow_department_group2</bpmn:incoming>
+            <bpmn:outgoing>flow_group2_gateway</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Condition Gateway -->
+        <bpmn:exclusiveGateway id="leaveDaysGateway"
+                               name="leaveDays < 3 ?">
+            <bpmn:incoming>flow_group2_gateway</bpmn:incoming>
+            <bpmn:outgoing>flow_to_vice_director</bpmn:outgoing>
+            <bpmn:outgoing>flow_to_parallel_group</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+
+        <!-- Vice Director -->
+        <bpmn:userTask id="viceDirectorTask"
+                       name="Vice Director Approval"
+                       flowable:candidateGroups="vice_director">
+            <bpmn:incoming>flow_to_vice_director</bpmn:incoming>
+            <bpmn:outgoing>flow_to_director</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Parallel Group -->
+        <bpmn:userTask id="parallelApprovalTask"
+                       name="HR + Vice Director Group + Fixed User"
+                       flowable:candidateGroups="hr,vice_director"
+                       flowable:candidateUsers="fixedApprover">
+            <bpmn:incoming>flow_to_parallel_group</bpmn:incoming>
+            <bpmn:outgoing>flow_parallel_to_director</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Director -->
+        <bpmn:userTask id="directorTask"
+                       name="Director Approval (Need Phone Number)"
+                       flowable:assignee="${director}">
+            <bpmn:incoming>flow_to_director</bpmn:incoming>
+            <bpmn:incoming>flow_parallel_to_director</bpmn:incoming>
+            <bpmn:outgoing>flow_director_final</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- Final Sign -->
+        <bpmn:userTask id="finalSignerTask"
+                       name="Final Signer"
+                       flowable:assignee="fixedFinalSigner"
+                       flowable:candidateGroups="final_group"
+                       flowable:candidateUsers="finalCandidate">
+            <bpmn:incoming>flow_director_final</bpmn:incoming>
+            <bpmn:outgoing>flow_final_end</bpmn:outgoing>
+        </bpmn:userTask>
+
+        <!-- End -->
+        <bpmn:endEvent id="endEvent"
+                       name="Process Completed">
+            <bpmn:incoming>flow_final_end</bpmn:incoming>
+        </bpmn:endEvent>
+
+        <!-- Sequence Flows -->
+        <bpmn:sequenceFlow id="flow_start_leader"
+                           sourceRef="startEvent"
+                           targetRef="leaderApproveTask"/>
+
+        <bpmn:sequenceFlow id="flow_leader_group1"
+                           sourceRef="leaderApproveTask"
+                           targetRef="groupApproveTask1"/>
+
+        <bpmn:sequenceFlow id="flow_group1_departmentHead"
+                           sourceRef="groupApproveTask1"
+                           targetRef="departmentHeadTask"/>
+
+        <bpmn:sequenceFlow id="flow_department_group2"
+                           sourceRef="departmentHeadTask"
+                           targetRef="groupApproveTask2"/>
+
+        <bpmn:sequenceFlow id="flow_group2_gateway"
+                           sourceRef="groupApproveTask2"
+                           targetRef="leaveDaysGateway"/>
+
+        <bpmn:sequenceFlow id="flow_to_vice_director"
+                           sourceRef="leaveDaysGateway"
+                           targetRef="viceDirectorTask">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                ${leaveDays < 3}
+            </bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow id="flow_to_parallel_group"
+                           sourceRef="leaveDaysGateway"
+                           targetRef="parallelApprovalTask">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">
+                ${leaveDays >= 3}
+            </bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+
+        <bpmn:sequenceFlow id="flow_to_director"
+                           sourceRef="viceDirectorTask"
+                           targetRef="directorTask"/>
+
+        <bpmn:sequenceFlow id="flow_parallel_to_director"
+                           sourceRef="parallelApprovalTask"
+                           targetRef="directorTask"/>
+
+        <bpmn:sequenceFlow id="flow_director_final"
+                           sourceRef="directorTask"
+                           targetRef="finalSignerTask"/>
+
+        <bpmn:sequenceFlow id="flow_final_end"
+                           sourceRef="finalSignerTask"
+                           targetRef="endEvent"/>
+
+    </bpmn:process>
+
+    <!-- BPMNDiagram section để visualize trong Flowable Modeler -->
+
+    <bpmndi:BPMNDiagram id="BPMNDiagram_leaveRequest">
+        <bpmndi:BPMNPlane id="BPMNPlane_leaveRequest"
+                          bpmnElement="leaveRequestProcess">
+
+            <!-- Start Event -->
+            <bpmndi:BPMNShape id="shape_startEvent"
+                              bpmnElement="startEvent">
+                <dc:Bounds x="80" y="180" width="36" height="36"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Leader -->
+            <bpmndi:BPMNShape id="shape_leaderApproveTask"
+                              bpmnElement="leaderApproveTask">
+                <dc:Bounds x="170" y="158" width="120" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Group 1 -->
+            <bpmndi:BPMNShape id="shape_groupApproveTask1"
+                              bpmnElement="groupApproveTask1">
+                <dc:Bounds x="340" y="158" width="140" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Department Head -->
+            <bpmndi:BPMNShape id="shape_departmentHeadTask"
+                              bpmnElement="departmentHeadTask">
+                <dc:Bounds x="540" y="158" width="140" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Group 2 -->
+            <bpmndi:BPMNShape id="shape_groupApproveTask2"
+                              bpmnElement="groupApproveTask2">
+                <dc:Bounds x="740" y="158" width="170" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Gateway -->
+            <bpmndi:BPMNShape id="shape_leaveDaysGateway"
+                              bpmnElement="leaveDaysGateway"
+                              isMarkerVisible="true">
+                <dc:Bounds x="980" y="173" width="50" height="50"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Vice Director -->
+            <bpmndi:BPMNShape id="shape_viceDirectorTask"
+                              bpmnElement="viceDirectorTask">
+                <dc:Bounds x="1100" y="60" width="140" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Parallel Approval -->
+            <bpmndi:BPMNShape id="shape_parallelApprovalTask"
+                              bpmnElement="parallelApprovalTask">
+                <dc:Bounds x="1100" y="280" width="180" height="90"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Director -->
+            <bpmndi:BPMNShape id="shape_directorTask"
+                              bpmnElement="directorTask">
+                <dc:Bounds x="1360" y="158" width="180" height="90"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Final Signer -->
+            <bpmndi:BPMNShape id="shape_finalSignerTask"
+                              bpmnElement="finalSignerTask">
+                <dc:Bounds x="1610" y="158" width="150" height="80"/>
+            </bpmndi:BPMNShape>
+
+            <!-- End Event -->
+            <bpmndi:BPMNShape id="shape_endEvent"
+                              bpmnElement="endEvent">
+                <dc:Bounds x="1830" y="180" width="36" height="36"/>
+            </bpmndi:BPMNShape>
+
+            <!-- Sequence Flows -->
+
+            <bpmndi:BPMNEdge id="edge_flow_start_leader"
+                             bpmnElement="flow_start_leader">
+                <di:waypoint x="116" y="198"/>
+                <di:waypoint x="170" y="198"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_leader_group1"
+                             bpmnElement="flow_leader_group1">
+                <di:waypoint x="290" y="198"/>
+                <di:waypoint x="340" y="198"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_group1_departmentHead"
+                             bpmnElement="flow_group1_departmentHead">
+                <di:waypoint x="480" y="198"/>
+                <di:waypoint x="540" y="198"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_department_group2"
+                             bpmnElement="flow_department_group2">
+                <di:waypoint x="680" y="198"/>
+                <di:waypoint x="740" y="198"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_group2_gateway"
+                             bpmnElement="flow_group2_gateway">
+                <di:waypoint x="910" y="198"/>
+                <di:waypoint x="980" y="198"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_to_vice_director"
+                             bpmnElement="flow_to_vice_director">
+                <di:waypoint x="1005" y="173"/>
+                <di:waypoint x="1005" y="100"/>
+                <di:waypoint x="1100" y="100"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_to_parallel_group"
+                             bpmnElement="flow_to_parallel_group">
+                <di:waypoint x="1005" y="223"/>
+                <di:waypoint x="1005" y="325"/>
+                <di:waypoint x="1100" y="325"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_to_director"
+                             bpmnElement="flow_to_director">
+                <di:waypoint x="1240" y="100"/>
+                <di:waypoint x="1450" y="100"/>
+                <di:waypoint x="1450" y="158"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_parallel_to_director"
+                             bpmnElement="flow_parallel_to_director">
+                <di:waypoint x="1280" y="325"/>
+                <di:waypoint x="1450" y="325"/>
+                <di:waypoint x="1450" y="248"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_director_final"
+                             bpmnElement="flow_director_final">
+                <di:waypoint x="1540" y="203"/>
+                <di:waypoint x="1610" y="203"/>
+            </bpmndi:BPMNEdge>
+
+            <bpmndi:BPMNEdge id="edge_flow_final_end"
+                             bpmnElement="flow_final_end">
+                <di:waypoint x="1760" y="198"/>
+                <di:waypoint x="1830" y="198"/>
+            </bpmndi:BPMNEdge>
+
+        </bpmndi:BPMNPlane>
+    </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

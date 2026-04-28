@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:flowable="http://flowable.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="http://example.com/approval">
+  <!-- ================= ERROR DEFINITION (PHẢI NẰM Ở ĐÂY) ================= -->
+  <error id="rejectError" errorCode="REJECT"/>
+  <!-- ================= PROCESS ================= -->
+  <process id="multiLevelApprovalProcess" name="Multi Level Approval (Flowable 7)" isExecutable="true">
+    <startEvent id="startEvent" name="Start"/>
+    <sequenceFlow id="flow_start_to_levels" sourceRef="startEvent" targetRef="approvalLevelSubProcess"/>
+    <!-- ================= SUB PROCESS ================= -->
+    <subProcess id="approvalLevelSubProcess" name="Approval Level">
+      <!-- Sequential per LEVEL -->
+      <multiInstanceLoopCharacteristics isSequential="true" flowable:collection="approvalLevels" flowable:elementVariable="currentLevel"/>
+      <startEvent id="levelStart"/>
+      <sequenceFlow id="flow_level_start_to_sign" sourceRef="levelStart" targetRef="signTask"/>
+      <!-- Parallel per SIGNER -->
+      <userTask id="signTask" name="Sign Document" flowable:assignee="${signer}">
+        <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${currentLevel.signers}" flowable:elementVariable="signer">
+          <completionCondition>${nrOfCompletedInstances == nrOfInstances}</completionCondition>
+        </multiInstanceLoopCharacteristics>
+      </userTask>
+      <!-- Reject -->
+      <boundaryEvent id="rejectBoundary" attachedToRef="signTask">
+        <errorEventDefinition errorRef="rejectError"/>
+      </boundaryEvent>
+      <endEvent id="levelApprovedEnd" name="Level Approved"/>
+      <sequenceFlow id="flow_sign_to_level_end" sourceRef="signTask" targetRef="levelApprovedEnd"/>
+      <endEvent id="processRejectedEnd" name="Process Rejected"/>
+      <sequenceFlow id="flow_reject_to_end" sourceRef="rejectBoundary" targetRef="processRejectedEnd"/>
+    </subProcess>
+    <sequenceFlow id="flow_levels_to_end" sourceRef="approvalLevelSubProcess" targetRef="processCompletedEnd"/>
+    <endEvent id="processCompletedEnd" name="Process Completed"/>
+  </process>
+  <!-- ===================== DIAGRAM ===================== -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_multiLevelApproval">
+    <bpmndi:BPMNPlane id="BPMNPlane_process" bpmnElement="multiLevelApprovalProcess">
+      <bpmndi:BPMNShape bpmnElement="startEvent" id="shape_start">
+        <dc:Bounds x="100" y="200" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="approvalLevelSubProcess" id="shape_subprocess">
+        <dc:Bounds x="200" y="160" width="420" height="220"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="levelStart" id="shape_level_start">
+        <dc:Bounds x="230" y="240" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signTask" id="shape_sign_task">
+        <dc:Bounds x="300" y="220" width="150" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="rejectBoundary" id="shape_reject_boundary">
+        <dc:Bounds x="430" y="210" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="levelApprovedEnd" id="shape_level_approved">
+        <dc:Bounds x="500" y="240" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="processRejectedEnd" id="shape_process_rejected">
+        <dc:Bounds x="350" y="320" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="processCompletedEnd" id="shape_process_completed">
+        <dc:Bounds x="680" y="200" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow_start_to_levels" id="edge_start_to_sub">
+        <di:waypoint x="136" y="218"/>
+        <di:waypoint x="200" y="218"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow_level_start_to_sign" id="edge_level_start_sign">
+        <di:waypoint x="260" y="255"/>
+        <di:waypoint x="300" y="255"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow_sign_to_level_end" id="edge_sign_approved">
+        <di:waypoint x="450" y="255"/>
+        <di:waypoint x="500" y="255"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow_reject_to_end" id="edge_reject">
+        <di:waypoint x="445" y="240"/>
+        <di:waypoint x="365" y="320"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow_levels_to_end" id="edge_levels_end">
+        <di:waypoint x="620" y="218"/>
+        <di:waypoint x="680" y="218"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
